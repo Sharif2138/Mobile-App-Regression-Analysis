@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -27,10 +29,10 @@ class PredictionScreen extends StatefulWidget {
   const PredictionScreen({super.key});
 
   @override
-  _PredictionScreenState createState() => _PredictionScreenState();
+  PredictionScreenState createState() => PredictionScreenState();
 }
 
-class _PredictionScreenState extends State<PredictionScreen> {
+class PredictionScreenState extends State<PredictionScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _stopsController = TextEditingController();
   final TextEditingController _durationController = TextEditingController();
@@ -107,7 +109,9 @@ class _PredictionScreenState extends State<PredictionScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://127.0.0.1:8000/predict'),
+        Uri.parse(
+          'https://mobile-app-regression-analysis.onrender.com/predict',
+        ),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(payload),
       );
@@ -120,12 +124,12 @@ class _PredictionScreenState extends State<PredictionScreen> {
       } else {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Prediction failed!')));
+        ).showSnackBar(const SnackBar(content: Text('Prediction failed!')));
       }
     } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error connecting to API!')));
+      ).showSnackBar(const SnackBar(content: Text('Error connecting to API!')));
     } finally {
       setState(() {
         _loading = false;
@@ -133,20 +137,36 @@ class _PredictionScreenState extends State<PredictionScreen> {
     }
   }
 
-  Widget buildInputCard(String label, Widget child) {
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            child,
-          ],
-        ),
+  Widget buildInputField(String label, Widget field) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.2),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: field,
+          ),
+        ],
       ),
     );
   }
@@ -154,117 +174,219 @@ class _PredictionScreenState extends State<PredictionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Airline Price Predictor')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Column(
             children: [
-              buildInputCard(
-                'Number of Stops',
-                TextFormField(
-                  controller: _stopsController,
-                  keyboardType: TextInputType.number,
-                  validator: (v) =>
-                      v!.isEmpty ? 'Please enter number of stops' : null,
-                  decoration: const InputDecoration(
-                    hintText: 'e.g. 1',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ),
-              buildInputCard(
-                'Duration (hours)',
-                TextFormField(
-                  controller: _durationController,
-                  keyboardType: TextInputType.number,
-                  validator: (v) => v!.isEmpty ? 'Please enter duration' : null,
-                  decoration: const InputDecoration(
-                    hintText: 'e.g. 2.5',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ),
-              buildInputCard(
-                'Days Left to Travel',
-                TextFormField(
-                  controller: _daysLeftController,
-                  keyboardType: TextInputType.number,
-                  validator: (v) =>
-                      v!.isEmpty ? 'Please enter days left' : null,
-                  decoration: const InputDecoration(
-                    hintText: 'e.g. 5',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ),
-              buildInputCard(
-                'Select Airline',
-                DropdownButtonFormField<String>(
-                  value: _selectedAirline,
-                  hint: const Text('Choose Airline'),
-                  items: airlines
-                      .map(
-                        (airline) => DropdownMenuItem(
-                          value: airline,
-                          child: Text(airline),
-                        ),
-                      )
-                      .toList(),
-                  validator: (v) => v == null ? 'Select an airline' : null,
-                  onChanged: (v) => setState(() => _selectedAirline = v),
-                ),
-              ),
-              buildInputCard(
-                'Select Departure Time',
-                DropdownButtonFormField<String>(
-                  value: _selectedDepartureTime,
-                  hint: const Text('Choose Departure Time'),
-                  items: departureTimes
-                      .map(
-                        (time) =>
-                            DropdownMenuItem(value: time, child: Text(time)),
-                      )
-                      .toList(),
-                  validator: (v) => v == null ? 'Select departure time' : null,
-                  onChanged: (v) => setState(() => _selectedDepartureTime = v),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
+              // Header
+              Container(
                 width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _loading ? null : predictPrice,
-                  icon: _loading
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Icon(Icons.flight_takeoff),
-                  label: const Text('Predict Price'),
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF101844), Color(0xFF19287B)],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-              ),
-              const SizedBox(height: 24),
-              if (_predictedPrice != null)
-                Card(
-                  color: Colors.indigo[50],
-                  elevation: 4,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      'Predicted Price: \$${_predictedPrice!.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontSize: 24,
+                child: Column(
+                  children: const [
+                    Icon(Icons.flight_takeoff, color: Colors.white, size: 60),
+                    SizedBox(height: 8),
+                    Text(
+                      'Airline Price Predictor',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
+                  ],
                 ),
+              ),
+              const SizedBox(height: 24),
+
+              Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    // Numeric Inputs
+                    Row(
+                      children: [
+                        buildInputField(
+                          'Stops',
+                          TextFormField(
+                            controller: _stopsController,
+                            keyboardType: TextInputType.number,
+                            validator: (v) {
+                              if (v == null || v.isEmpty) return 'Enter stops';
+                              final val = int.tryParse(v);
+                              if (val == null || val < 0 || val > 3) {
+                                return '0-3 only';
+                              }
+                              return null;
+                            },
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              hintText: '0-3',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        buildInputField(
+                          'Duration',
+                          TextFormField(
+                            controller: _durationController,
+                            keyboardType: TextInputType.number,
+                            validator: (v) =>
+                                v!.isEmpty ? 'Enter duration' : null,
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              hintText: 'hours',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        buildInputField(
+                          'Days Left',
+                          TextFormField(
+                            controller: _daysLeftController,
+                            keyboardType: TextInputType.number,
+                            validator: (v) =>
+                                v!.isEmpty ? 'Enter days left' : null,
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              hintText: 'days',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Dropdowns
+                    Row(
+                      children: [
+                        buildInputField(
+                          'Airline',
+                          DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            value: _selectedAirline,
+                            hint: const Text('Choose'),
+                            items: airlines
+                                .map(
+                                  (airline) => DropdownMenuItem(
+                                    value: airline,
+                                    child: Text(airline),
+                                  ),
+                                )
+                                .toList(),
+                            validator: (v) =>
+                                v == null ? 'Select airline' : null,
+                            onChanged: (v) =>
+                                setState(() => _selectedAirline = v),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        buildInputField(
+                          'Departure',
+                          DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            value: _selectedDepartureTime,
+                            hint: const Text('Choose'),
+                            items: departureTimes
+                                .map(
+                                  (time) => DropdownMenuItem(
+                                    value: time,
+                                    child: Text(time),
+                                  ),
+                                )
+                                .toList(),
+                            validator: (v) =>
+                                v == null ? 'Select departure' : null,
+                            onChanged: (v) =>
+                                setState(() => _selectedDepartureTime = v),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 30),
+
+                    // Predict Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _loading ? null : predictPrice,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: const Color(0xFF081457),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: _loading
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : const Text(
+                                'Predict Price',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Prediction Output
+                    if (_predictedPrice != null)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.indigo[50],
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'Predicted Price',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.indigo,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              '\$${_predictedPrice!.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

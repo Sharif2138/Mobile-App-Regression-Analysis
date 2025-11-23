@@ -1,122 +1,274 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const AirlinePriceApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class AirlinePriceApp extends StatelessWidget {
+  const AirlinePriceApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      debugShowCheckedModeBanner: false,
+      title: 'Airline Price Predictor',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        primarySwatch: Colors.indigo,
+        scaffoldBackgroundColor: Colors.grey[100],
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const PredictionScreen(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class PredictionScreen extends StatefulWidget {
+  const PredictionScreen({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  _PredictionScreenState createState() => _PredictionScreenState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _PredictionScreenState extends State<PredictionScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _stopsController = TextEditingController();
+  final TextEditingController _durationController = TextEditingController();
+  final TextEditingController _daysLeftController = TextEditingController();
 
-  void _incrementCounter() {
+  String? _selectedAirline;
+  String? _selectedDepartureTime;
+  double? _predictedPrice;
+  bool _loading = false;
+
+  final List<String> airlines = [
+    'Air_India',
+    'GO_FIRST',
+    'Indigo',
+    'SpiceJet',
+    'Vistara',
+  ];
+
+  final List<String> departureTimes = [
+    'Early_Morning',
+    'Morning',
+    'Evening',
+    'Late_Night',
+    'Night',
+  ];
+
+  Map<String, int> encodeAirline(String airline) {
+    return {
+      'Air_India': airline == 'Air_India' ? 1 : 0,
+      'GO_FIRST': airline == 'GO_FIRST' ? 1 : 0,
+      'Indigo': airline == 'Indigo' ? 1 : 0,
+      'SpiceJet': airline == 'SpiceJet' ? 1 : 0,
+      'Vistara': airline == 'Vistara' ? 1 : 0,
+    };
+  }
+
+  Map<String, int> encodeDeparture(String time) {
+    return {
+      'Early_Morning': time == 'Early_Morning' ? 1 : 0,
+      'Morning': time == 'Morning' ? 1 : 0,
+      'Evening': time == 'Evening' ? 1 : 0,
+      'Late_Night': time == 'Late_Night' ? 1 : 0,
+      'Night': time == 'Night' ? 1 : 0,
+    };
+  }
+
+  Future<void> predictPrice() async {
+    if (!_formKey.currentState!.validate()) return;
+
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _loading = true;
+      _predictedPrice = null;
     });
+
+    final airlineMap = encodeAirline(_selectedAirline!);
+    final departureMap = encodeDeparture(_selectedDepartureTime!);
+
+    final Map<String, dynamic> payload = {
+      "stops": int.parse(_stopsController.text),
+      "duration": double.parse(_durationController.text),
+      "days_left": int.parse(_daysLeftController.text),
+      "airline_Air_India": airlineMap['Air_India'],
+      "airline_GO_FIRST": airlineMap['GO_FIRST'],
+      "airline_Indigo": airlineMap['Indigo'],
+      "airline_SpiceJet": airlineMap['SpiceJet'],
+      "airline_Vistara": airlineMap['Vistara'],
+      "class_Economy": 1,
+      "departure_time_Early_Morning": departureMap['Early_Morning'],
+      "departure_time_Morning": departureMap['Morning'],
+      "departure_time_Evening": departureMap['Evening'],
+      "departure_time_Late_Night": departureMap['Late_Night'],
+      "departure_time_Night": departureMap['Night'],
+    };
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://127.0.0.1:8000/predict'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _predictedPrice = data['predicted_price'];
+        });
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Prediction failed!')));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error connecting to API!')));
+    } finally {
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
+
+  Widget buildInputCard(String label, Widget child) {
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            child,
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+      appBar: AppBar(title: const Text('Airline Price Predictor')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              buildInputCard(
+                'Number of Stops',
+                TextFormField(
+                  controller: _stopsController,
+                  keyboardType: TextInputType.number,
+                  validator: (v) =>
+                      v!.isEmpty ? 'Please enter number of stops' : null,
+                  decoration: const InputDecoration(
+                    hintText: 'e.g. 1',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              buildInputCard(
+                'Duration (hours)',
+                TextFormField(
+                  controller: _durationController,
+                  keyboardType: TextInputType.number,
+                  validator: (v) => v!.isEmpty ? 'Please enter duration' : null,
+                  decoration: const InputDecoration(
+                    hintText: 'e.g. 2.5',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              buildInputCard(
+                'Days Left to Travel',
+                TextFormField(
+                  controller: _daysLeftController,
+                  keyboardType: TextInputType.number,
+                  validator: (v) =>
+                      v!.isEmpty ? 'Please enter days left' : null,
+                  decoration: const InputDecoration(
+                    hintText: 'e.g. 5',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              buildInputCard(
+                'Select Airline',
+                DropdownButtonFormField<String>(
+                  value: _selectedAirline,
+                  hint: const Text('Choose Airline'),
+                  items: airlines
+                      .map(
+                        (airline) => DropdownMenuItem(
+                          value: airline,
+                          child: Text(airline),
+                        ),
+                      )
+                      .toList(),
+                  validator: (v) => v == null ? 'Select an airline' : null,
+                  onChanged: (v) => setState(() => _selectedAirline = v),
+                ),
+              ),
+              buildInputCard(
+                'Select Departure Time',
+                DropdownButtonFormField<String>(
+                  value: _selectedDepartureTime,
+                  hint: const Text('Choose Departure Time'),
+                  items: departureTimes
+                      .map(
+                        (time) =>
+                            DropdownMenuItem(value: time, child: Text(time)),
+                      )
+                      .toList(),
+                  validator: (v) => v == null ? 'Select departure time' : null,
+                  onChanged: (v) => setState(() => _selectedDepartureTime = v),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _loading ? null : predictPrice,
+                  icon: _loading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Icons.flight_takeoff),
+                  label: const Text('Predict Price'),
+                ),
+              ),
+              const SizedBox(height: 24),
+              if (_predictedPrice != null)
+                Card(
+                  color: Colors.indigo[50],
+                  elevation: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      'Predicted Price: \$${_predictedPrice!.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }

@@ -11,7 +11,7 @@
 - Accepts JSON POST requests with input variables (`stops`, `duration`, `days_left`, `airline`, `departure_time`) and returns predicted ticket price.
 
 ## Video Demo
-- **YouTube Link:** [https://youtu.be/your-video-link](https://youtu.be/your-video-link)  
+- **YouTube Link:** [https://youtu.be/8bZJg_fW3YQ](https://youtu.be/8bZJg_fW3YQ)  
 - Max 5 minutes demonstrating Flutter app, API, Swagger UI, and prediction workflow.
 
 ## How to Run Mobile App

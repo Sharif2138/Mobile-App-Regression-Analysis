@@ -1,5 +1,4 @@
 // ignore_for_file: use_build_context_synchronously, deprecated_member_use
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -41,6 +40,7 @@ class PredictionScreenState extends State<PredictionScreen> {
   String? _selectedAirline;
   String? _selectedDepartureTime;
   double? _predictedPrice;
+  String? _selectedClass;
   bool _loading = false;
 
   final List<String> airlines = [
@@ -57,6 +57,10 @@ class PredictionScreenState extends State<PredictionScreen> {
     'Evening',
     'Late_Night',
     'Night',
+  ];
+
+  final List<String> classes = [
+    'Economy',
   ];
 
   Map<String, int> encodeAirline(String airline) {
@@ -79,6 +83,20 @@ class PredictionScreenState extends State<PredictionScreen> {
     };
   }
 
+  Map<String, int> encodeClass(String classType) {
+    return {
+      'Economy': classType == 'Economy' ? 1 : 0,
+    };
+  }
+
+  @override
+  void dispose() {
+    _stopsController.dispose();
+    _durationController.dispose();
+    _daysLeftController.dispose();
+    super.dispose();
+  }
+
   Future<void> predictPrice() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -89,6 +107,7 @@ class PredictionScreenState extends State<PredictionScreen> {
 
     final airlineMap = encodeAirline(_selectedAirline!);
     final departureMap = encodeDeparture(_selectedDepartureTime!);
+    final classMap = encodeClass(_selectedClass!);
 
     final Map<String, dynamic> payload = {
       "stops": int.parse(_stopsController.text),
@@ -99,7 +118,7 @@ class PredictionScreenState extends State<PredictionScreen> {
       "airline_Indigo": airlineMap['Indigo'],
       "airline_SpiceJet": airlineMap['SpiceJet'],
       "airline_Vistara": airlineMap['Vistara'],
-      "class_Economy": 1,
+      "class_Economy": classMap['Economy'],
       "departure_time_Early_Morning": departureMap['Early_Morning'],
       "departure_time_Morning": departureMap['Morning'],
       "departure_time_Evening": departureMap['Evening'],
@@ -285,6 +304,30 @@ class PredictionScreenState extends State<PredictionScreen> {
                                 v == null ? 'Select airline' : null,
                             onChanged: (v) =>
                                 setState(() => _selectedAirline = v),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        buildInputField(
+                          'Class',
+                          DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            value: _selectedClass,
+                            hint: const Text('Choose'),
+                            items: classes
+                                .map(
+                                  (cls) => DropdownMenuItem(
+                                    value: cls,
+                                    child: Text(cls),
+                                  ),
+                                )
+                                .toList(),
+                            validator: (v) =>
+                                v == null ? 'Select class' : null,
+                            onChanged: (v) =>
+                                setState(() => _selectedClass = v),
                             decoration: const InputDecoration(
                               border: InputBorder.none,
                             ),
